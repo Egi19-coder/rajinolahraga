@@ -23,20 +23,13 @@
 const DEMO_EMAIL = 'budi@rajinolahraga.id';
 const DEMO_PASS  = '123456';
 
-// ---------- DATA CONTOH (ganti dengan hasil fetch API) ----------
-const weekData = [
-  {d:'Sen', sport:'lari', done:true},
-  {d:'Sel', sport:'sepeda', done:true},
-  {d:'Rab', sport:null, done:false},
-  {d:'Kam', sport:'renang', done:true},
-  {d:'Jum', sport:'lari', done:true},
-  {d:'Sab', sport:'sepeda', done:true},
-  {d:'Min', sport:null, done:false},
-];
-
+// ---------- KONSTANTA OLAHRAGA ----------
 const sportColor = {lari:'var(--lari)', sepeda:'var(--sepeda)', renang:'var(--renang)'};
 const sportTint  = {lari:'var(--lari-tint)', sepeda:'var(--sepeda-tint)', renang:'var(--renang-tint)'};
 const sportLabel = {lari:'Lari', sepeda:'Bersepeda', renang:'Berenang'};
+// Estimasi kalori per km, dipakai untuk hitung kalori terbakar dari jarak+jenis olahraga
+const KKAL_PER_KM = {lari:60, sepeda:25, renang:40};
+const DAY_LABELS = ['Min','Sen','Sel','Rab','Kam','Jum','Sab']; // index sesuai Date.getDay()
 
 const videos = [
   {id:1, sport:'lari', title:'Lari Interval Pemula 20 Menit', dur:'20:15', img:'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=600&q=80'},
@@ -47,16 +40,41 @@ const videos = [
   {id:6, sport:'renang', title:'Renang Interval untuk Stamina', dur:'22:10', img:'https://images.unsplash.com/photo-1560090995-01632a28895b?w=600&q=80'},
 ];
 
-// Jurnal progress SENGAJA kosong di awal — pengguna harus input sendiri
-// dulu lewat form "+ Catat" di halaman progress.html sebelum ada isinya.
+// Jurnal progress SENGAJA kosong di awal — pengguna belum pernah tercatat
+// olahraga sama sekali sampai dia input sendiri lewat form "+ Catat" di
+// halaman progress.html. Semua statistik (dashboard, kalori, jalur mingguan)
+// dihitung langsung dari isi `journal` ini, jadi kalau journal kosong,
+// semuanya otomatis mulai dari 0 — tidak ada data contoh yang nyasar lagi.
 let journal = [];
 let journalIdCounter = 1;
 
-let kalori = [
-  {label:'Lari pagi 5K', kkal:420, sport:'lari'},
-  {label:'Sepeda santai 14 km', kkal:560, sport:'sepeda'},
-  {label:'Aktivitas harian', kkal:870, sport:null},
-];
+function estimateKkal(sport, jarak){
+  return Math.round((KKAL_PER_KM[sport] || 40) * jarak);
+}
+
+// Awal minggu (Senin 00:00) dari sebuah tanggal
+function startOfWeek(date){
+  const d = new Date(date);
+  const day = d.getDay(); // 0=Min ... 6=Sab
+  const diff = (day === 0 ? -6 : 1) - day; // mundur ke Senin
+  d.setDate(d.getDate() + diff);
+  d.setHours(0,0,0,0);
+  return d;
+}
+function startOfMonth(date){
+  const d = new Date(date);
+  d.setDate(1); d.setHours(0,0,0,0);
+  return d;
+}
+
+// Kumpulkan entri jurnal sesuai rentang waktu: 'minggu' | 'bulan' | 'semua'
+function journalInRange(range){
+  const now = new Date();
+  let from = null;
+  if(range === 'minggu') from = startOfWeek(now);
+  else if(range === 'bulan') from = startOfMonth(now);
+  return journal.filter(j => !from || j.dateObj >= from);
+}
 
 // =========================================================================
 // AUTH (login.html)
@@ -203,13 +221,48 @@ document.addEventListener('click', function(e){
 function renderWeek(){
   const wrap = document.getElementById('week-lanes');
   if(!wrap) return;
-  wrap.innerHTML = weekData.map(day => `
+
+  // Bangun 7 hari Senin..Minggu untuk minggu berjalan, lalu cek apakah
+  // ada entri jurnal yang jatuh di hari itu. Kalau journal kosong (user
+  // baru login, belum pernah catat), semuanya otomatis kosong/abu-abu.
+  const monday = startOfWeek(new Date());
+  const days = [];
+  for(let i=0;i<7;i++){
+    const d = new Date(monday);
+    d.setDate(monday.getDate()+i);
+    const entry = journal.find(j => j.dateObj && j.dateObj.toDateString() === d.toDateString());
+    days.push({ d: DAY_LABELS[d.getDay()], sport: entry ? entry.sport : null, done: !!entry });
+  }
+
+  wrap.innerHTML = days.map(day => `
     <div class="lane ${day.done ? 'filled' : ''}">
       ${day.done ? `<div class="fill" style="height:70%; background:${sportColor[day.sport]};"></div>` : ''}
       ${day.done ? `<svg class="i check" viewBox="0 0 24 24" style="width:16px;height:16px;color:#fff;"><polyline points="20 6 9 17 4 12"/></svg>` : ''}
       <span class="day-label">${day.d}</span>
     </div>
   `).join('');
+}
+
+// Angka ringkasan di 3 kartu atas dashboard (kalori, jarak, sesi)
+function renderDashboardStats(range){
+  range = range || 'minggu';
+  const entries = journalInRange(range);
+  const totalKkal = entries.reduce((sum,j) => sum + estimateKkal(j.sport, j.jarak), 0);
+  const totalJarak = entries.reduce((sum,j) => sum + j.jarak, 0);
+  const totalSesi = entries.length;
+
+  const elK = document.getElementById('stat-kalori');
+  const elJ = document.getElementById('stat-jarak');
+  const elS = document.getElementById('stat-sesi');
+  if(elK) elK.textContent = totalKkal.toLocaleString('id-ID');
+  if(elJ) elJ.textContent = totalJarak.toFixed(1) + ' km';
+  if(elS) elS.textContent = totalSesi + ' sesi';
+
+  // Teks kecil di bawah tiap kartu: netral kalau belum ada data sama sekali
+  const deltaEls = document.querySelectorAll('#page-dashboard .stat-delta');
+  if(deltaEls[0]) deltaEls[0].textContent = totalKkal>0 ? 'Terus catat biar makin akurat' : 'Belum ada aktivitas tercatat';
+  if(deltaEls[1]) deltaEls[1].textContent = totalJarak>0 ? 'Dari catatan jurnal kamu' : 'Belum ada aktivitas tercatat';
+  if(deltaEls[2]) deltaEls[2].textContent = 'Target: 7 sesi/minggu';
 }
 
 function videoCardHTML(v){
@@ -248,9 +301,20 @@ function renderLatihan(filter){
 // =========================================================================
 // KALORI
 // =========================================================================
-function renderKaloriRing(percent){
+// Target kalori harian dipakai buat isi lingkaran progres di halaman Kalori
+const TARGET_KKAL_HARIAN = 600;
+
+function renderKaloriRing(){
   const ring = document.getElementById('kalori-ring');
   if(!ring) return;
+
+  // Kalori "hari ini" dihitung dari entri jurnal yang tanggalnya = hari ini.
+  // Kalau belum ada catatan sama sekali, otomatis 0%.
+  const today = new Date();
+  const todaysEntries = journal.filter(j => j.dateObj && j.dateObj.toDateString() === today.toDateString());
+  const todayKkal = todaysEntries.reduce((sum,j) => sum + estimateKkal(j.sport, j.jarak), 0);
+  const percent = Math.max(0, Math.min(100, Math.round((todayKkal / TARGET_KKAL_HARIAN) * 100)));
+
   const circ = 2 * Math.PI * 62;
   ring.style.strokeDasharray = circ;
   ring.style.strokeDashoffset = circ * (1 - percent/100);
@@ -270,15 +334,21 @@ function renderKaloriRing(percent){
 function renderKaloriList(){
   const wrap = document.getElementById('kalori-list');
   if(!wrap) return;
-  const icByS = {lari:'var(--lari)', sepeda:'var(--sepeda)', renang:'var(--renang)', null:'var(--ink-faint)'};
-  const tintByS = {lari:'var(--lari-tint)', sepeda:'var(--sepeda-tint)', renang:'var(--renang-tint)', null:'var(--surface-2)'};
-  wrap.innerHTML = kalori.map(k => `
+
+  if(journal.length === 0){
+    wrap.innerHTML = `<div class="card" style="text-align:center; color:var(--ink-soft);">Belum ada aktivitas. Catat latihan pertamamu di halaman Jurnal Progress.</div>`;
+    return;
+  }
+
+  // Tampilkan entri jurnal terbaru sebagai rincian sumber kalori
+  const recent = journal.slice(0, 6);
+  wrap.innerHTML = recent.map(j => `
     <div class="journal-item">
-      <div class="j-ic" style="background:${tintByS[k.sport]}; color:${icByS[k.sport]};">
+      <div class="j-ic" style="background:${sportTint[j.sport]}; color:${sportColor[j.sport]};">
         <svg class="i" viewBox="0 0 24 24" style="width:20px;height:20px;"><path d="M12 21c4.4 0 7-2.8 7-6.4 0-4-3-6.6-4.6-9.6-.4 2-1.4 3-2.6 3-1.6 0-2-1.6-1.6-3.4C7.6 6.6 5 9.6 5 14.6 5 18.2 7.6 21 12 21z"/></svg>
       </div>
-      <div class="j-body"><h4>${k.label}</h4><p>${k.sport ? sportLabel[k.sport] : 'Umum'}</p></div>
-      <span class="j-num">${k.kkal} kkal</span>
+      <div class="j-body"><h4>${sportLabel[j.sport]} · ${j.jarak} km</h4><p>${j.tglLabel}</p></div>
+      <span class="j-num">${estimateKkal(j.sport, j.jarak)} kkal</span>
     </div>
   `).join('');
 }
@@ -304,7 +374,7 @@ function renderJournal(){
       </div>
       <div class="j-body">
         <h4>${sportLabel[j.sport]} · ${j.jarak} km</h4>
-        <p>${j.durasi} menit &middot; ${j.tgl}</p>
+        <p>${j.durasi} menit &middot; ${j.tglLabel}</p>
       </div>
       <div class="j-actions">
         <button class="icon-btn" aria-label="Ubah catatan" title="Ubah">
@@ -323,10 +393,16 @@ function addJournalEntry(){
   const jarak = parseFloat(document.getElementById('j-jarak').value) || 0;
   const durasi = parseInt(document.getElementById('j-durasi').value) || 0;
   if(jarak<=0 || durasi<=0){ document.getElementById('j-jarak').focus(); return; }
-  journal.unshift({id: journalIdCounter++, sport, jarak, durasi, tgl:'Baru saja'});
+  const now = new Date();
+  journal.unshift({id: journalIdCounter++, sport, jarak, durasi, dateObj: now, tglLabel: 'Baru saja'});
   document.getElementById('j-jarak').value = '';
   document.getElementById('j-durasi').value = '';
   renderJournal();
+  // Data baru masuk → angka di dashboard & kalori ikut ter-update seketika
+  renderWeek();
+  renderDashboardStats(document.querySelector('#page-dashboard .tabbar button.active')?.dataset.range || 'minggu');
+  renderKaloriRing();
+  renderKaloriList();
   // TODO(API): POST ke /api/progress
 }
 
@@ -338,12 +414,20 @@ function closeModal(){
   document.getElementById('modal-overlay').classList.remove('open');
   pendingDeleteId = null;
 }
+function refreshAllStats(){
+  renderWeek();
+  renderDashboardStats(document.querySelector('#page-dashboard .tabbar button.active')?.dataset.range || 'minggu');
+  renderKaloriRing();
+  renderKaloriList();
+}
+
 function confirmDelete(){
   const idx = journal.findIndex(j => j.id === pendingDeleteId);
   if(idx > -1){
     lastDeleted = {item: journal[idx], index: idx};
     journal.splice(idx,1);
     renderJournal();
+    refreshAllStats();
     showUndoBar();
     // TODO(API): DELETE ke /api/progress/:id
   }
@@ -360,6 +444,7 @@ function undoDelete(){
   if(lastDeleted){
     journal.splice(lastDeleted.index, 0, lastDeleted.item);
     renderJournal();
+    refreshAllStats();
   }
   document.getElementById('undo-bar').classList.remove('show');
   clearTimeout(undoTimer);
