@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Masuk — Rajin Olahraga</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="login">
+
+<!-- =====================================================================
+     AUTH SCREEN (LOGIN / REGISTER)
+     ===================================================================== -->
+<div id="auth-screen">
+  <div class="auth-visual">
+    <div class="track-strip"><span></span><span></span><span></span></div>
+    <div class="brandmark">
+      <div class="badge-mark">
+        <svg class="i" viewBox="0 0 24 24"><path d="M4 12h4l2-7 4 14 2-7h4"/></svg>
+      </div>
+      <strong style="font-family:'Space Grotesk',sans-serif;">Rajin Olahraga</strong>
+    </div>
+    <div class="tagline">
+      <h1>Lari, sepeda, renang — semua progresmu di satu tempat.</h1>
+      <p>Lacak kalori harian, ikuti latihan video mingguan, dan pantau rapor kebugaranmu sendiri di rumah.</p>
+    </div>
+  </div>
+
+  <div class="auth-form-wrap">
+    <div class="auth-card">
+      <div class="auth-tabs" role="tablist" aria-label="Pilih mode masuk">
+        <button id="tab-login" class="active" role="tab" aria-selected="true" onclick="switchAuthTab('login')">Masuk</button>
+        <button id="tab-register" role="tab" aria-selected="false" onclick="switchAuthTab('register')">Daftar</button>
+      </div>
+
+      <form id="form-login" onsubmit="return handleLogin(event)">
+        <div class="field">
+          <label for="login-email">Email</label>
+          <input id="login-email" type="email" placeholder="kamu@email.com" required value="budi@rajinolahraga.id">
+        </div>
+        <div class="field" id="login-pass-field">
+          <label for="login-pass">Kata sandi</label>
+          <div class="field-pass-wrap">
+            <input id="login-pass" type="password" placeholder="••••••••" required value="123456" oninput="clearLoginError()">
+            <button type="button" class="toggle-pass" aria-label="Lihat kata sandi" onclick="togglePasswordVisibility('login-pass', this)">
+              <svg class="i eye-on" viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg><svg class="i eye-off" viewBox="0 0 24 24"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.4 21.4 0 0 1 5.06-5.94M9.9 4.24A10.6 10.6 0 0 1 12 4c7 0 11 7 11 7a21.4 21.4 0 0 1-2.16 3.19m-6.2-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </button>
+          </div>
+          <div class="field-error" id="login-error">
+            <svg class="i" viewBox="0 0 24 24" style="width:14px;height:14px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Sandi anda salah, silakan coba lagi.
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Masuk ke Akun</button>
+        <p class="auth-foot">Belum punya akun? <button type="button" onclick="switchAuthTab('register')">Daftar gratis</button></p>
+      </form>
+
+      <form id="form-register" class="hidden" onsubmit="return handleRegister(event)">
+        <div class="field">
+          <label for="reg-nama">Nama lengkap</label>
+          <input id="reg-nama" type="text" placeholder="Nama kamu" required>
+        </div>
+        <div class="field">
+          <label for="reg-email">Email</label>
+          <input id="reg-email" type="email" placeholder="kamu@email.com" required>
+        </div>
+        <div class="field">
+          <label for="reg-sport">Fokus olahraga utama</label>
+          <select id="reg-sport">
+            <option value="lari">Lari</option>
+            <option value="sepeda">Bersepeda</option>
+            <option value="renang">Berenang</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="reg-pass">Buat kata sandi</label>
+          <div class="field-pass-wrap">
+            <input id="reg-pass" type="password" placeholder="Minimal 6 karakter" required minlength="6">
+            <button type="button" class="toggle-pass" aria-label="Lihat kata sandi" onclick="togglePasswordVisibility('reg-pass', this)">
+              <svg class="i eye-on" viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg><svg class="i eye-off" viewBox="0 0 24 24"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.4 21.4 0 0 1 5.06-5.94M9.9 4.24A10.6 10.6 0 0 1 12 4c7 0 11 7 11 7a21.4 21.4 0 0 1-2.16 3.19m-6.2-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </button>
+          </div>
+          <div class="field-hint">Password akan disimpan ter-enkripsi di server.</div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Buat Akun</button>
+        <p class="auth-foot">Sudah punya akun? <button type="button" onclick="switchAuthTab('login')">Masuk di sini</button></p>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="js/main.js"></script>
+</body>
+</html>

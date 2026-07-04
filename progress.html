@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jurnal Progress — Rajin Olahraga</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="progress" data-requires-auth="true">
+
+<div id="app-shell">
+
+
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="icon-btn burger-btn" aria-label="Buka menu navigasi" onclick="toggleDrawer(true)">
+        <svg class="i" viewBox="0 0 24 24"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+      </button>
+      <div class="brand">
+        <div class="badge-mark"><svg class="i" viewBox="0 0 24 24" stroke="#fff"><path d="M4 12h4l2-7 4 14 2-7h4"/></svg></div>
+        <span>Rajin Olahraga</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="icon-btn" aria-label="Buka menu aplikasi" aria-haspopup="true" id="apps-btn" onclick="toggleAppsMenu()">
+        <svg class="i" viewBox="0 0 24 24"><circle cx="5" cy="5" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="5" r="1.6" fill="currentColor" stroke="none"/><circle cx="19" cy="5" r="1.6" fill="currentColor" stroke="none"/><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="5" cy="19" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.6" fill="currentColor" stroke="none"/><circle cx="19" cy="19" r="1.6" fill="currentColor" stroke="none"/></svg>
+      </button>
+
+      <!-- TOP APPS MENU / SUBMENU -->
+      <div class="apps-menu-panel" id="apps-menu-panel" role="menu">
+        <h4>Alat Cepat</h4>
+        <div class="apps-grid">
+          <button role="menuitem" onclick="goPage('kalori'); toggleAppsMenu(false)">
+            <span class="app-ic" style="background:var(--lari-tint); color:var(--lari);"><svg class="i" viewBox="0 0 24 24" style="width:20px;height:20px;"><path d="M12 2v6M12 16v6M4.9 4.9l4.2 4.2M14.9 14.9l4.2 4.2M2 12h6M16 12h6M4.9 19.1l4.2-4.2M14.9 9.1l4.2-4.2"/></svg></span>
+            <span>Kalkulator Kalori</span>
+          </button>
+          <button role="menuitem" onclick="goPage('latihan'); toggleAppsMenu(false)">
+            <span class="app-ic" style="background:var(--sepeda-tint); color:var(--sepeda);"><svg class="i" viewBox="0 0 24 24" style="width:20px;height:20px;"><circle cx="6" cy="17" r="3.2"/><circle cx="18" cy="17" r="3.2"/><path d="M6 17l4-8h4l3 8M10 9h3"/></svg></span>
+            <span>Jadwal Latihan</span>
+          </button>
+          <button role="menuitem" onclick="goPage('rapor'); toggleAppsMenu(false)">
+            <span class="app-ic" style="background:var(--renang-tint); color:var(--renang);"><svg class="i" viewBox="0 0 24 24" style="width:20px;height:20px;"><path d="M4 19c1.5-1.5 3-1.5 4.5 0s3 1.5 4.5 0 3-1.5 4.5 0M6 13l3-6 3 3 3-5 3 4"/></svg></span>
+            <span>Unduh Rapor</span>
+          </button>
+          <button role="menuitem" onclick="goPage('progress'); toggleAppsMenu(false)">
+            <span class="app-ic" style="background:var(--primary-tint); color:var(--primary-dark);"><svg class="i" viewBox="0 0 24 24" style="width:20px;height:20px;"><path d="M4 20V10M12 20V4M20 20v-7"/></svg></span>
+            <span>Jurnal Fisik</span>
+          </button>
+          <button role="menuitem" onclick="goPage('profil'); toggleAppsMenu(false)">
+            <span class="app-ic" style="background:var(--surface-2); color:var(--ink-soft);"><svg class="i" viewBox="0 0 24 24" style="width:20px;height:20px;"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c1.6-3.6 4.4-5.4 7-5.4S17.4 16.4 19 20"/></svg></span>
+            <span>Pengaturan Akun</span>
+          </button>
+          <button role="menuitem" onclick="alert('Fitur bantuan segera hadir')" style="display:none"></button>
+        </div>
+      </div>
+
+      <div class="avatar" id="topbar-avatar" title="Profil">BS</div>
+    </div>
+  </header>
+
+  <!-- DRAWER OVERLAY (mobile) -->
+  <div class="drawer-overlay" id="drawer-overlay" onclick="toggleDrawer(false)"></div>
+
+  <div class="layout-body">
+    <!-- BURGER DRAWER -->
+    <aside class="drawer" id="drawer" aria-label="Navigasi utama">
+      <div class="drawer-head">
+        <div class="drawer-user">
+          <div class="avatar">BS</div>
+          <div>
+            <strong id="drawer-username">Budi Santoso</strong>
+            <small>Fokus: Lari &amp; Sepeda</small>
+          </div>
+        </div>
+        <button class="icon-btn burger-btn" aria-label="Tutup menu" onclick="toggleDrawer(false)">
+          <svg class="i" viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
+        </button>
+      </div>
+      <nav class="drawer-nav">
+        <div class="section-label">Menu Utama</div>
+        <button class="nav-item" data-page="dashboard" onclick="goPage('dashboard')">
+          <svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>
+          Dashboard
+        </button>
+        <button class="nav-item" data-page="kalori" onclick="goPage('kalori')">
+          <svg class="i" viewBox="0 0 24 24"><path d="M12 21c4.4 0 7-2.8 7-6.4 0-4-3-6.6-4.6-9.6-.4 2-1.4 3-2.6 3-1.6 0-2-1.6-1.6-3.4C7.6 6.6 5 9.6 5 14.6 5 18.2 7.6 21 12 21z"/></svg>
+          Kalori Harian
+        </button>
+        <button class="nav-item" data-page="latihan" onclick="goPage('latihan')">
+          <svg class="i" viewBox="0 0 24 24"><polygon points="9 7 18 12 9 17 9 7"/><rect x="3" y="4" width="18" height="16" rx="3"/></svg>
+          Latihan Mingguan
+        </button>
+        <button class="nav-item" data-page="progress" onclick="goPage('progress')">
+          <svg class="i" viewBox="0 0 24 24"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>
+          Jurnal Progress
+        </button>
+        <button class="nav-item" data-page="rapor" onclick="goPage('rapor')">
+          <svg class="i" viewBox="0 0 24 24"><path d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M9 12h6M9 16h6M9 8h3"/></svg>
+          Rapor Kebugaran
+        </button>
+        <div class="section-label">Akun</div>
+        <button class="nav-item" data-page="profil" onclick="goPage('profil')">
+          <svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c1.6-3.6 4.4-5.4 7-5.4S17.4 16.4 19 20"/></svg>
+          Profil Saya
+        </button>
+      </nav>
+      <div class="drawer-foot">
+        <button class="nav-item logout-btn" onclick="handleLogout()">
+          <svg class="i" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Keluar
+        </button>
+      </div>
+    </aside>
+
+    
+<div class="main-col">
+<section class="page" id="page-progress">
+        <div class="page-head">
+          <div>
+            <h2>Jurnal Progress Fisik</h2>
+            <p>Catat berat badan, jarak, dan waktu latihanmu.</p>
+          </div>
+        </div>
+
+        <div class="add-journal-form">
+          <div class="field">
+            <label for="j-jenis">Jenis olahraga</label>
+            <select id="j-jenis">
+              <option value="lari">Lari</option>
+              <option value="sepeda">Bersepeda</option>
+              <option value="renang">Berenang</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="j-jarak">Jarak (km)</label>
+            <input id="j-jarak" type="number" step="0.1" placeholder="5.0">
+          </div>
+          <div class="field">
+            <label for="j-durasi">Durasi (menit)</label>
+            <input id="j-durasi" type="number" placeholder="30">
+          </div>
+          <button class="btn btn-primary" onclick="addJournalEntry()">+ Catat</button>
+        </div>
+
+        <div class="undo-bar" id="undo-bar">
+          <span id="undo-text">Catatan dihapus.</span>
+          <button onclick="undoDelete()">Urungkan</button>
+        </div>
+
+        <div id="journal-list"></div>
+      </section>
+
+<footer class="credit">Rajin Olahraga · Prototipe UI/UX · Data di halaman ini contoh, hubungkan ke API Worker kamu untuk data asli.</footer>
+    </div>
+  </div>
+
+  <!-- BOTTOM NAV (mobile) -->
+  <nav class="bottom-nav" aria-label="Navigasi bawah">
+    <button data-page="dashboard" onclick="goPage('dashboard')">
+      <svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>
+      Beranda
+    </button>
+    <button data-page="kalori" onclick="goPage('kalori')">
+      <svg class="i" viewBox="0 0 24 24"><path d="M12 21c4.4 0 7-2.8 7-6.4 0-4-3-6.6-4.6-9.6-.4 2-1.4 3-2.6 3-1.6 0-2-1.6-1.6-3.4C7.6 6.6 5 9.6 5 14.6 5 18.2 7.6 21 12 21z"/></svg>
+      Kalori
+    </button>
+    <button data-page="latihan" onclick="goPage('latihan')">
+      <svg class="i" viewBox="0 0 24 24"><polygon points="9 7 18 12 9 17 9 7"/><rect x="3" y="4" width="18" height="16" rx="3"/></svg>
+      Latihan
+    </button>
+    <button data-page="progress" onclick="goPage('progress')">
+      <svg class="i" viewBox="0 0 24 24"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>
+      Progress
+    </button>
+    <button data-page="rapor" onclick="goPage('rapor')">
+      <svg class="i" viewBox="0 0 24 24"><path d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M9 12h6M9 16h6M9 8h3"/></svg>
+      Rapor
+    </button>
+  </nav>
+</div>
+
+<!-- DELETE CONFIRM MODAL -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-box">
+    <div class="m-ic"><svg class="i" viewBox="0 0 24 24" style="width:22px;height:22px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></div>
+    <h3>Hapus catatan ini?</h3>
+    <p>Catatan latihan yang dihapus bisa kamu urungkan sebentar setelah ini, tapi akan hilang permanen setelahnya.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Batal</button>
+      <button class="btn btn-danger" onclick="confirmDelete()">Hapus</button>
+    </div>
+  </div>
+</div>
+<script src="js/main.js"></script>
+</body>
+</html>
