@@ -1,22 +1,8 @@
-/* =========================================================================
-   RAJIN OLAHRAGA — main.js
-   File JS bersama untuk semua halaman (login.html, dashboard.html, dst).
-   Setiap fungsi render sudah dijaga dengan pengecekan elemen, jadi aman
-   dipakai di halaman manapun tanpa error walau elemennya tidak ada.
 
-   CATATAN INTEGRASI BACKEND (Cloudflare Workers + D1):
-   Ganti fungsi-fungsi bertanda // TODO(API) dengan fetch() ke worker kamu.
-   Untuk sekarang, jurnal progress disimpan di localStorage supaya tidak
-   hilang saat refresh/pindah halaman (lihat loadJournal/saveJournal).
-   ========================================================================= */
-
-// ---------- KREDENSIAL CONTOH (hapus setelah backend nyata terpasang) ----------
 const DEMO_EMAIL = 'budi@rajinolahraga.id';
 const DEMO_PASS  = '123456';
 
-// =========================================================================
-// META OLAHRAGA (dipakai di semua halaman supaya konsisten & singkron)
-// =========================================================================
+
 const sportColor = {lari:'var(--lari)', sepeda:'var(--sepeda)', renang:'var(--renang)'};
 const sportTint  = {lari:'var(--lari-tint)', sepeda:'var(--sepeda-tint)', renang:'var(--renang-tint)'};
 const sportLabel = {lari:'Lari', sepeda:'Bersepeda', renang:'Berenang'};
@@ -737,8 +723,7 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   renderRaporPage();
 
-  // Tabbar rentang waktu (dashboard) — saat ini stat selalu mengikuti 7 hari
-  // terakhir; opsi ini disiapkan untuk pengembangan rentang lain via API.
+
   const dashTabbar = document.querySelector('#page-dashboard .tabbar');
   if(dashTabbar){
     dashTabbar.addEventListener('click', function(e){
