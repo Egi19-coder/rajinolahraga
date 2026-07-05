@@ -5,31 +5,40 @@
    dipakai di halaman manapun tanpa error walau elemennya tidak ada.
 
    CATATAN INTEGRASI BACKEND (Cloudflare Workers + D1):
-   Ganti fungsi-fungsi bertanda // TODO(API) dengan fetch() ke worker kamu,
-   contoh:
-
-   async function handleLogin(e){
-     e.preventDefault();
-     const res = await fetch('https://cms-api-worker.widyazef28.workers.dev/api/login', {
-       method:'POST', headers:{'Content-Type':'application/json'},
-       body: JSON.stringify({ email, password })
-     });
-     const data = await res.json();
-     // simpan data.token di cookie httpOnly (diset dari server), lalu redirect
-   }
+   Ganti fungsi-fungsi bertanda // TODO(API) dengan fetch() ke worker kamu.
+   Untuk sekarang, jurnal progress disimpan di localStorage supaya tidak
+   hilang saat refresh/pindah halaman (lihat loadJournal/saveJournal).
    ========================================================================= */
 
 // ---------- KREDENSIAL CONTOH (hapus setelah backend nyata terpasang) ----------
 const DEMO_EMAIL = 'budi@rajinolahraga.id';
 const DEMO_PASS  = '123456';
 
-// ---------- KONSTANTA OLAHRAGA ----------
+// =========================================================================
+// META OLAHRAGA (dipakai di semua halaman supaya konsisten & singkron)
+// =========================================================================
 const sportColor = {lari:'var(--lari)', sepeda:'var(--sepeda)', renang:'var(--renang)'};
 const sportTint  = {lari:'var(--lari-tint)', sepeda:'var(--sepeda-tint)', renang:'var(--renang-tint)'};
 const sportLabel = {lari:'Lari', sepeda:'Bersepeda', renang:'Berenang'};
-// Estimasi kalori per km, dipakai untuk hitung kalori terbakar dari jarak+jenis olahraga
-const KKAL_PER_KM = {lari:60, sepeda:25, renang:40};
-const DAY_LABELS = ['Min','Sen','Sel','Rab','Kam','Jum','Sab']; // index sesuai Date.getDay()
+
+// Estimasi kalori terbakar per menit (kkal/menit) — dipakai supaya tiap
+// catatan jurnal otomatis punya kalori yang konsisten.
+const sportCalRate = {lari:11, sepeda:8, renang:9};
+
+// Target mingguan per olahraga (dipakai untuk menghitung skor rapor)
+const sportTarget = {
+  lari:   {sesi:5, jarak:20},
+  sepeda: {sesi:5, jarak:40},
+  renang: {sesi:5, jarak:5},
+};
+
+// Link video YouTube resmi per jenis olahraga — klik kartu video akan
+// membuka link ini di tab baru.
+const sportVideoLink = {
+  lari:   'https://youtube.com/shorts/lMyBYSISah0?si=M29KJAaUdtahUgC_',
+  sepeda: 'https://youtube.com/shorts/fi6oLo5OxAM?si=-aik4OrXBVYvXCko',
+  renang: 'https://youtube.com/shorts/ZfzXCvIRKfM?si=lp3bvhqDT_sCRE6G',
+};
 
 const videos = [
   {id:1, sport:'lari', title:'Lari Interval Pemula 20 Menit', dur:'20:15', img:'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=600&q=80'},
@@ -40,40 +49,58 @@ const videos = [
   {id:6, sport:'renang', title:'Renang Interval untuk Stamina', dur:'22:10', img:'https://images.unsplash.com/photo-1560090995-01632a28895b?w=600&q=80'},
 ];
 
-// Jurnal progress SENGAJA kosong di awal — pengguna belum pernah tercatat
-// olahraga sama sekali sampai dia input sendiri lewat form "+ Catat" di
-// halaman progress.html. Semua statistik (dashboard, kalori, jalur mingguan)
-// dihitung langsung dari isi `journal` ini, jadi kalau journal kosong,
-// semuanya otomatis mulai dari 0 — tidak ada data contoh yang nyasar lagi.
-let journal = [];
-let journalIdCounter = 1;
+// Tips & trik singkat per olahraga — muncul di dashboard bagian "Tips & Trik"
+const tips = [
+  {sport:'lari',   title:'Pemanasan 5 menit dulu', text:'Jalan cepat atau jogging pelan sebelum lari penuh, biar otot & sendi siap dan cedera lebih kecil risikonya.'},
+  {sport:'sepeda', title:'Atur tinggi sadel', text:'Sadel terlalu rendah bikin lutut cepat capek. Posisi ideal: kaki hampir lurus saat pedal di titik terbawah.'},
+  {sport:'renang', title:'Fokus napas dulu, bukan speed', text:'Bangun ritme napas yang nyaman dulu sebelum kejar kecepatan, biar stamina di air lebih awet.'},
+  {sport:'lari',   title:'Jangan naikkan jarak >10%/minggu', text:'Tambah jarak lari sedikit demi sedikit tiap minggu supaya tubuh sempat beradaptasi.'},
+  {sport:'sepeda', title:'Cek tekanan angin ban', text:'Ban kurang angin bikin kayuhan lebih berat dan boros energi — cek rutin sebelum sesi latihan.'},
+  {sport:'renang', title:'Peregangan bahu setelah renang', text:'Bahu paling sering pegal setelah renang, luangkan 5 menit stretching ringan sesudahnya.'},
+];
 
-function estimateKkal(sport, jarak){
-  return Math.round((KKAL_PER_KM[sport] || 40) * jarak);
+// =========================================================================
+// JURNAL PROGRESS — persisten di localStorage supaya tidak hilang
+// =========================================================================
+const JOURNAL_KEY = 'ro_journal_v1';
+
+function loadJournal(){
+  try{
+    const raw = localStorage.getItem(JOURNAL_KEY);
+    if(!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  }catch(e){
+    console.warn('Gagal membaca jurnal dari localStorage', e);
+    return [];
+  }
 }
 
-// Awal minggu (Senin 00:00) dari sebuah tanggal
-function startOfWeek(date){
-  const d = new Date(date);
-  const day = d.getDay(); // 0=Min ... 6=Sab
-  const diff = (day === 0 ? -6 : 1) - day; // mundur ke Senin
-  d.setDate(d.getDate() + diff);
-  d.setHours(0,0,0,0);
-  return d;
-}
-function startOfMonth(date){
-  const d = new Date(date);
-  d.setDate(1); d.setHours(0,0,0,0);
-  return d;
+function saveJournal(){
+  try{
+    localStorage.setItem(JOURNAL_KEY, JSON.stringify(journal));
+  }catch(e){
+    console.warn('Gagal menyimpan jurnal ke localStorage', e);
+  }
+  // TODO(API): sinkronkan juga ke server, misal POST/PUT ke /api/progress
 }
 
-// Kumpulkan entri jurnal sesuai rentang waktu: 'minggu' | 'bulan' | 'semua'
-function journalInRange(range){
-  const now = new Date();
-  let from = null;
-  if(range === 'minggu') from = startOfWeek(now);
-  else if(range === 'bulan') from = startOfMonth(now);
-  return journal.filter(j => !from || j.dateObj >= from);
+let journal = loadJournal();
+let journalIdCounter = journal.reduce((max,j)=>Math.max(max, j.id||0), 0) + 1;
+
+function calcKkal(sport, durasi){
+  const rate = sportCalRate[sport] || 8;
+  return Math.round(rate * durasi);
+}
+
+function todayISO(){
+  return new Date().toISOString().slice(0,10);
+}
+
+function formatTglLabel(iso){
+  if(iso === todayISO()) return 'Hari ini';
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('id-ID', {day:'numeric', month:'short'});
 }
 
 // =========================================================================
@@ -88,7 +115,6 @@ function switchAuthTab(tab){
   document.getElementById('form-register').classList.toggle('hidden', tab!=='register');
 }
 
-// Klik ikon mata: tampil/sembunyikan kata sandi
 function togglePasswordVisibility(inputId, btn){
   const input = document.getElementById(inputId);
   const showing = input.type === 'text';
@@ -155,11 +181,12 @@ function guardAuth(){
   }
 }
 
-// Isi nama/email pengguna di topbar, drawer, dan halaman profil
+// Isi nama/email pengguna di topbar, drawer, halaman profil, & sapaan dashboard
 function fillUserInfo(){
   const nama = localStorage.getItem('ro_nama') || 'Budi Santoso';
   const email = localStorage.getItem('ro_email') || 'budi@rajinolahraga.id';
   const initials = nama.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  const firstName = nama.split(' ')[0];
 
   document.querySelectorAll('#topbar-avatar, .drawer-user .avatar').forEach(el => el.textContent = initials);
   const un = document.getElementById('drawer-username');
@@ -175,6 +202,9 @@ function fillUserInfo(){
   const inputEmail = document.getElementById('profil-input-email');
   if(inputNama) inputNama.value = nama;
   if(inputEmail) inputEmail.value = email;
+
+  const greet = document.getElementById('dash-greeting');
+  if(greet) greet.textContent = `Halo, ${firstName} 👋`;
 }
 
 // =========================================================================
@@ -216,58 +246,99 @@ document.addEventListener('click', function(e){
 });
 
 // =========================================================================
-// DASHBOARD
+// STATISTIK (dipakai dashboard & rapor) — dihitung langsung dari jurnal
 // =========================================================================
-function renderWeek(){
-  const wrap = document.getElementById('week-lanes');
-  if(!wrap) return;
 
-  // Bangun 7 hari Senin..Minggu untuk minggu berjalan, lalu cek apakah
-  // ada entri jurnal yang jatuh di hari itu. Kalau journal kosong (user
-  // baru login, belum pernah catat), semuanya otomatis kosong/abu-abu.
-  const monday = startOfWeek(new Date());
-  const days = [];
-  for(let i=0;i<7;i++){
-    const d = new Date(monday);
-    d.setDate(monday.getDate()+i);
-    const entry = journal.find(j => j.dateObj && j.dateObj.toDateString() === d.toDateString());
-    days.push({ d: DAY_LABELS[d.getDay()], sport: entry ? entry.sport : null, done: !!entry });
-  }
-
-  wrap.innerHTML = days.map(day => `
-    <div class="lane ${day.done ? 'filled' : ''}">
-      ${day.done ? `<div class="fill" style="height:70%; background:${sportColor[day.sport]};"></div>` : ''}
-      ${day.done ? `<svg class="i check" viewBox="0 0 24 24" style="width:16px;height:16px;color:#fff;"><polyline points="20 6 9 17 4 12"/></svg>` : ''}
-      <span class="day-label">${day.d}</span>
-    </div>
-  `).join('');
+// Ambil tanggal ISO utk n hari terakhir dihitung dari hari ini (termasuk hari ini)
+function isoRangeLastNDays(n, offsetDays){
+  offsetDays = offsetDays || 0;
+  const end = new Date();
+  end.setDate(end.getDate() - offsetDays);
+  const start = new Date(end);
+  start.setDate(start.getDate() - (n-1));
+  return {start: start.toISOString().slice(0,10), end: end.toISOString().slice(0,10)};
 }
 
-// Angka ringkasan di 3 kartu atas dashboard (kalori, jarak, sesi)
-function renderDashboardStats(range){
-  range = range || 'minggu';
-  const entries = journalInRange(range);
-  const totalKkal = entries.reduce((sum,j) => sum + estimateKkal(j.sport, j.jarak), 0);
-  const totalJarak = entries.reduce((sum,j) => sum + j.jarak, 0);
-  const totalSesi = entries.length;
+function entryInRange(entry, range){
+  return entry.tgl >= range.start && entry.tgl <= range.end;
+}
+
+// Hitung total kalori, jarak, & sesi dari jurnal untuk periode & sport tertentu.
+// sport = null artinya semua olahraga digabung.
+function computeStats(sport, periodDays, offsetDays){
+  periodDays = periodDays || 7;
+  offsetDays = offsetDays || 0;
+  const range = isoRangeLastNDays(periodDays, offsetDays);
+  const rows = journal.filter(j => (!sport || j.sport === sport) && entryInRange(j, range));
+  return {
+    kalori: rows.reduce((s,j)=> s + (j.kkal||0), 0),
+    jarak: rows.reduce((s,j)=> s + (j.jarak||0), 0),
+    sesi: rows.length,
+    rows,
+  };
+}
+
+function fmtDelta(curr, prev, unit){
+  if(prev === 0 && curr === 0) return `Belum ada data ${unit ? 'minggu ini' : ''}`.trim();
+  if(prev === 0) return `▲ data baru minggu ini`;
+  const diff = curr - prev;
+  const pct = Math.round((diff/prev)*100);
+  const arrow = diff >= 0 ? '▲' : '▼';
+  return `${arrow} ${Math.abs(pct)}% dari minggu lalu`;
+}
+
+// =========================================================================
+// DASHBOARD
+// =========================================================================
+function renderDashboardStats(){
+  const curr = computeStats(null, 7, 0);
+  const prev = computeStats(null, 7, 7);
 
   const elK = document.getElementById('stat-kalori');
   const elJ = document.getElementById('stat-jarak');
   const elS = document.getElementById('stat-sesi');
-  if(elK) elK.textContent = totalKkal.toLocaleString('id-ID');
-  if(elJ) elJ.textContent = totalJarak.toFixed(1) + ' km';
-  if(elS) elS.textContent = totalSesi + ' sesi';
+  if(elK) elK.textContent = curr.kalori.toLocaleString('id-ID');
+  if(elJ) elJ.textContent = curr.jarak.toFixed(1).replace('.', ',') + ' km';
+  if(elS) elS.textContent = curr.sesi + ' sesi';
 
-  // Teks kecil di bawah tiap kartu: netral kalau belum ada data sama sekali
-  const deltaEls = document.querySelectorAll('#page-dashboard .stat-delta');
-  if(deltaEls[0]) deltaEls[0].textContent = totalKkal>0 ? 'Terus catat biar makin akurat' : 'Belum ada aktivitas tercatat';
-  if(deltaEls[1]) deltaEls[1].textContent = totalJarak>0 ? 'Dari catatan jurnal kamu' : 'Belum ada aktivitas tercatat';
-  if(deltaEls[2]) deltaEls[2].textContent = 'Target: 7 sesi/minggu';
+  const dK = document.getElementById('stat-kalori-delta');
+  const dJ = document.getElementById('stat-jarak-delta');
+  if(dK) dK.textContent = fmtDelta(curr.kalori, prev.kalori);
+  if(dJ) dJ.textContent = fmtDelta(curr.jarak, prev.jarak);
+}
+
+function renderWeek(){
+  const wrap = document.getElementById('week-lanes');
+  if(!wrap) return;
+  const dayNames = ['Sen','Sel','Rab','Kam','Jum','Sab','Min'];
+  const today = new Date();
+  // Cari hari Senin minggu ini
+  const dow = (today.getDay() + 6) % 7; // 0=Senin
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - dow);
+
+  let html = '';
+  for(let i=0;i<7;i++){
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const iso = d.toISOString().slice(0,10);
+    const entriesForDay = journal.filter(j => j.tgl === iso);
+    const done = entriesForDay.length > 0;
+    const sport = done ? entriesForDay[0].sport : null;
+    html += `
+      <div class="lane ${done ? 'filled' : ''}">
+        ${done ? `<div class="fill" style="height:70%; background:${sportColor[sport]};"></div>` : ''}
+        ${done ? `<svg class="i check" viewBox="0 0 24 24" style="width:16px;height:16px;color:#fff;"><polyline points="20 6 9 17 4 12"/></svg>` : ''}
+        <span class="day-label">${dayNames[i]}</span>
+      </div>`;
+  }
+  wrap.innerHTML = html;
 }
 
 function videoCardHTML(v){
+  const link = sportVideoLink[v.sport];
   return `
-    <div class="card video-card hoverable">
+    <div class="card video-card hoverable" role="button" tabindex="0" aria-label="Tonton video: ${v.title}" onclick="window.open('${link}','_blank')" onkeydown="if(event.key==='Enter'){window.open('${link}','_blank')}" style="cursor:pointer;">
       <div class="video-thumb">
         <img src="${v.img}" alt="Thumbnail latihan ${sportLabel[v.sport]}: ${v.title}">
         <span class="duration mono">${v.dur}</span>
@@ -281,10 +352,28 @@ function videoCardHTML(v){
       </div>
     </div>`;
 }
-function renderDashVideos(){
-  const el = document.getElementById('dash-next-videos');
+
+function tipCardHTML(t){
+  return `
+    <div class="card tip-card hoverable">
+      <div class="tip-ic" style="background:${sportTint[t.sport]}; color:${sportColor[t.sport]};">
+        <svg class="i" viewBox="0 0 24 24" style="width:20px;height:20px;"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+      </div>
+      <div class="tip-body">
+        <span class="tag ${t.sport}" style="margin-bottom:8px;">${sportLabel[t.sport]}</span>
+        <h4>${t.title}</h4>
+        <p>${t.text}</p>
+      </div>
+    </div>`;
+}
+
+function renderDashTips(){
+  const el = document.getElementById('dash-tips');
   if(!el) return;
-  el.innerHTML = videos.slice(0,3).map(videoCardHTML).join('');
+  // Ambil tips secara acak-ringan (rotasi harian) supaya tidak monoton
+  const seed = new Date().getDate();
+  const rotated = tips.slice(seed % tips.length).concat(tips.slice(0, seed % tips.length));
+  el.innerHTML = rotated.slice(0,3).map(tipCardHTML).join('');
 }
 
 // =========================================================================
@@ -299,22 +388,11 @@ function renderLatihan(filter){
 }
 
 // =========================================================================
-// KALORI
+// KALORI HARIAN — disinkronkan dengan jurnal progress hari ini
 // =========================================================================
-// Target kalori harian dipakai buat isi lingkaran progres di halaman Kalori
-const TARGET_KKAL_HARIAN = 600;
-
-function renderKaloriRing(){
+function renderKaloriRing(percent){
   const ring = document.getElementById('kalori-ring');
   if(!ring) return;
-
-  // Kalori "hari ini" dihitung dari entri jurnal yang tanggalnya = hari ini.
-  // Kalau belum ada catatan sama sekali, otomatis 0%.
-  const today = new Date();
-  const todaysEntries = journal.filter(j => j.dateObj && j.dateObj.toDateString() === today.toDateString());
-  const todayKkal = todaysEntries.reduce((sum,j) => sum + estimateKkal(j.sport, j.jarak), 0);
-  const percent = Math.max(0, Math.min(100, Math.round((todayKkal / TARGET_KKAL_HARIAN) * 100)));
-
   const circ = 2 * Math.PI * 62;
   ring.style.strokeDasharray = circ;
   ring.style.strokeDashoffset = circ * (1 - percent/100);
@@ -322,6 +400,7 @@ function renderKaloriRing(){
   document.getElementById('kalori-ring-num').textContent = percent + '%';
 
   const ticks = document.getElementById('stopwatch-ticks');
+  if(!ticks) return;
   let tickSvg = '';
   for(let i=0;i<24;i++){
     const angle = (i/24) * 360;
@@ -331,53 +410,65 @@ function renderKaloriRing(){
   ticks.innerHTML = tickSvg;
 }
 
-function renderKaloriList(){
+function renderKaloriPage(){
   const wrap = document.getElementById('kalori-list');
   if(!wrap) return;
 
-  if(journal.length === 0){
-    wrap.innerHTML = `<div class="card" style="text-align:center; color:var(--ink-soft);">Belum ada aktivitas. Catat latihan pertamamu di halaman Jurnal Progress.</div>`;
+  const todayStats = computeStats(null, 1, 0);
+  const target = 2500;
+  const terbakar = todayStats.kalori;
+  const pct = Math.min(100, Math.round((terbakar/target)*100));
+
+  renderKaloriRing(pct);
+  const elTerbakar = document.getElementById('kal-terbakar');
+  if(elTerbakar) elTerbakar.textContent = terbakar.toLocaleString('id-ID') + ' kkal';
+  const elSisa = document.getElementById('kal-sisa');
+  if(elSisa) elSisa.textContent = Math.max(0, target-terbakar).toLocaleString('id-ID') + ' kkal';
+
+  if(todayStats.rows.length === 0){
+    wrap.innerHTML = `<div class="card" style="text-align:center; color:var(--ink-soft);">Belum ada aktivitas tercatat hari ini. Tambahkan lewat halaman Jurnal Progress.</div>`;
     return;
   }
-
-  // Tampilkan entri jurnal terbaru sebagai rincian sumber kalori
-  const recent = journal.slice(0, 6);
-  wrap.innerHTML = recent.map(j => `
+  wrap.innerHTML = todayStats.rows.map(j => `
     <div class="journal-item">
       <div class="j-ic" style="background:${sportTint[j.sport]}; color:${sportColor[j.sport]};">
         <svg class="i" viewBox="0 0 24 24" style="width:20px;height:20px;"><path d="M12 21c4.4 0 7-2.8 7-6.4 0-4-3-6.6-4.6-9.6-.4 2-1.4 3-2.6 3-1.6 0-2-1.6-1.6-3.4C7.6 6.6 5 9.6 5 14.6 5 18.2 7.6 21 12 21z"/></svg>
       </div>
-      <div class="j-body"><h4>${sportLabel[j.sport]} · ${j.jarak} km</h4><p>${j.tglLabel}</p></div>
-      <span class="j-num">${estimateKkal(j.sport, j.jarak)} kkal</span>
+      <div class="j-body"><h4>${sportLabel[j.sport]} · ${j.jarak} km</h4><p>${j.durasi} menit</p></div>
+      <span class="j-num">${j.kkal} kkal</span>
     </div>
   `).join('');
 }
 
 // =========================================================================
-// JURNAL PROGRESS (dengan delete confirm + undo)
+// JURNAL PROGRESS (simpan, edit, hapus + undo) — per olahraga
 // =========================================================================
 let pendingDeleteId = null;
 let lastDeleted = null;
 let undoTimer = null;
+let journalFilter = 'semua';
+let editingJournalId = null;
 
 function renderJournal(){
   const wrap = document.getElementById('journal-list');
   if(!wrap) return;
-  if(journal.length === 0){
-    wrap.innerHTML = `<div class="card" style="text-align:center; color:var(--ink-soft);">Belum ada catatan. Tambahkan latihan pertamamu di atas.</div>`;
+  const list = journalFilter === 'semua' ? journal : journal.filter(j => j.sport === journalFilter);
+
+  if(list.length === 0){
+    wrap.innerHTML = `<div class="card" style="text-align:center; color:var(--ink-soft);">Belum ada catatan${journalFilter!=='semua' ? ' untuk '+sportLabel[journalFilter] : ''}. Tambahkan latihan pertamamu di atas.</div>`;
     return;
   }
-  wrap.innerHTML = journal.map(j => `
-    <div class="journal-item">
+  wrap.innerHTML = list.map(j => `
+    <div class="journal-item ${editingJournalId===j.id ? 'editing' : ''}">
       <div class="j-ic" style="background:${sportTint[j.sport]}; color:${sportColor[j.sport]};">
         <svg class="i" viewBox="0 0 24 24" style="width:20px;height:20px;"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>
       </div>
       <div class="j-body">
         <h4>${sportLabel[j.sport]} · ${j.jarak} km</h4>
-        <p>${j.durasi} menit &middot; ${j.tglLabel}</p>
+        <p>${j.durasi} menit &middot; ${formatTglLabel(j.tgl)} &middot; ${j.kkal} kkal</p>
       </div>
       <div class="j-actions">
-        <button class="icon-btn" aria-label="Ubah catatan" title="Ubah">
+        <button class="icon-btn" aria-label="Ubah catatan" title="Ubah" onclick="startEditJournal(${j.id})">
           <svg class="i" viewBox="0 0 24 24" style="width:18px;height:18px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
         </button>
         <button class="icon-btn" aria-label="Hapus catatan" title="Hapus" style="color:var(--warn);" onclick="askDelete(${j.id})">
@@ -388,22 +479,63 @@ function renderJournal(){
   `).join('');
 }
 
+function setJournalFilter(filter){
+  journalFilter = filter;
+  renderJournal();
+}
+
+function resetJournalForm(){
+  editingJournalId = null;
+  document.getElementById('j-jenis').value = 'lari';
+  document.getElementById('j-jarak').value = '';
+  document.getElementById('j-durasi').value = '';
+  const btn = document.getElementById('journal-submit-btn');
+  if(btn) btn.textContent = '+ Catat';
+  const cancelBtn = document.getElementById('journal-cancel-btn');
+  if(cancelBtn) cancelBtn.style.display = 'none';
+}
+
+function startEditJournal(id){
+  const item = journal.find(j => j.id === id);
+  if(!item) return;
+  editingJournalId = id;
+  document.getElementById('j-jenis').value = item.sport;
+  document.getElementById('j-jarak').value = item.jarak;
+  document.getElementById('j-durasi').value = item.durasi;
+  const btn = document.getElementById('journal-submit-btn');
+  if(btn) btn.textContent = 'Simpan Perubahan';
+  const cancelBtn = document.getElementById('journal-cancel-btn');
+  if(cancelBtn) cancelBtn.style.display = 'inline-flex';
+  renderJournal();
+  document.getElementById('j-jarak').scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+function cancelEditJournal(){
+  resetJournalForm();
+  renderJournal();
+}
+
 function addJournalEntry(){
   const sport = document.getElementById('j-jenis').value;
   const jarak = parseFloat(document.getElementById('j-jarak').value) || 0;
   const durasi = parseInt(document.getElementById('j-durasi').value) || 0;
   if(jarak<=0 || durasi<=0){ document.getElementById('j-jarak').focus(); return; }
-  const now = new Date();
-  journal.unshift({id: journalIdCounter++, sport, jarak, durasi, dateObj: now, tglLabel: 'Baru saja'});
-  document.getElementById('j-jarak').value = '';
-  document.getElementById('j-durasi').value = '';
+  const kkal = calcKkal(sport, durasi);
+
+  if(editingJournalId){
+    const item = journal.find(j => j.id === editingJournalId);
+    if(item){
+      item.sport = sport; item.jarak = jarak; item.durasi = durasi; item.kkal = kkal;
+      // TODO(API): PUT ke /api/progress/:id
+    }
+  }else{
+    journal.unshift({id: journalIdCounter++, sport, jarak, durasi, kkal, tgl: todayISO()});
+    // TODO(API): POST ke /api/progress
+  }
+  saveJournal();
+  resetJournalForm();
   renderJournal();
-  // Data baru masuk → angka di dashboard & kalori ikut ter-update seketika
-  renderWeek();
-  renderDashboardStats(document.querySelector('#page-dashboard .tabbar button.active')?.dataset.range || 'minggu');
-  renderKaloriRing();
-  renderKaloriList();
-  // TODO(API): POST ke /api/progress
+  renderAllSyncedViews();
 }
 
 function askDelete(id){
@@ -414,20 +546,15 @@ function closeModal(){
   document.getElementById('modal-overlay').classList.remove('open');
   pendingDeleteId = null;
 }
-function refreshAllStats(){
-  renderWeek();
-  renderDashboardStats(document.querySelector('#page-dashboard .tabbar button.active')?.dataset.range || 'minggu');
-  renderKaloriRing();
-  renderKaloriList();
-}
-
 function confirmDelete(){
   const idx = journal.findIndex(j => j.id === pendingDeleteId);
   if(idx > -1){
     lastDeleted = {item: journal[idx], index: idx};
     journal.splice(idx,1);
+    if(editingJournalId === pendingDeleteId) resetJournalForm();
+    saveJournal();
     renderJournal();
-    refreshAllStats();
+    renderAllSyncedViews();
     showUndoBar();
     // TODO(API): DELETE ke /api/progress/:id
   }
@@ -443,12 +570,103 @@ function showUndoBar(){
 function undoDelete(){
   if(lastDeleted){
     journal.splice(lastDeleted.index, 0, lastDeleted.item);
+    saveJournal();
     renderJournal();
-    refreshAllStats();
+    renderAllSyncedViews();
   }
   document.getElementById('undo-bar').classList.remove('show');
   clearTimeout(undoTimer);
   lastDeleted = null;
+}
+
+// Panggil ulang semua tampilan yang datanya bergantung pada jurnal, supaya
+// dashboard, kalori, dan rapor selalu singkron begitu jurnal berubah.
+function renderAllSyncedViews(){
+  renderDashboardStats();
+  renderWeek();
+  renderKaloriPage();
+  renderRaporPage();
+}
+
+// =========================================================================
+// RAPOR KEBUGARAN — dihitung dari jurnal progress 7 hari terakhir, per olahraga
+// =========================================================================
+let raporFilter = 'semua';
+
+function scoreToGrade(score){
+  if(score >= 90) return 'A';
+  if(score >= 80) return 'A-';
+  if(score >= 70) return 'B+';
+  if(score >= 60) return 'B';
+  if(score >= 50) return 'C+';
+  if(score > 0)   return 'C';
+  return '—';
+}
+
+function noteForScore(sport, score, sesi){
+  if(sesi === 0) return `Belum ada catatan latihan ${sportLabel[sport]} minggu ini. Yuk mulai catat di Jurnal Progress!`;
+  if(score >= 85) return `Konsistensi ${sportLabel[sport]} kamu sangat baik minggu ini. Pertahankan ya!`;
+  if(score >= 60) return `Progres ${sportLabel[sport]} kamu cukup baik. Coba tambah 1-2 sesi lagi minggu ini.`;
+  return `Latihan ${sportLabel[sport]} kamu masih di bawah target minggu ini, coba lebih rutin lagi.`;
+}
+
+function computeSportRapor(sport){
+  const stats = computeStats(sport, 7, 0);
+  const target = sportTarget[sport];
+  const sesiScore = Math.min(100, Math.round((stats.sesi / target.sesi) * 100));
+  const jarakScore = Math.min(100, Math.round((stats.jarak / target.jarak) * 100));
+  const score = stats.sesi === 0 ? 0 : Math.round(sesiScore*0.6 + jarakScore*0.4);
+  return {
+    sport, score, sesi: stats.sesi, jarak: stats.jarak, kalori: stats.kalori,
+    grade: scoreToGrade(score),
+    note: noteForScore(sport, score, stats.sesi),
+  };
+}
+
+function subjectCardHTML(r){
+  return `
+    <div class="subject-card">
+      <div class="subject-top">
+        <div class="left">
+          <div class="s-ic" style="background:${sportTint[r.sport]}; color:${sportColor[r.sport]};">
+            <svg class="i" viewBox="0 0 24 24" style="width:20px;height:20px;"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>
+          </div>
+          <div><h4>${sportLabel[r.sport]}</h4><small>${r.sesi} sesi minggu ini &middot; ${r.jarak.toFixed(1)} km</small></div>
+        </div>
+        <span class="subject-score" style="color:${sportColor[r.sport]};">${r.score}</span>
+      </div>
+      <div class="progress-track"><div class="fill" style="width:${r.score}%; background:${sportColor[r.sport]};"></div></div>
+    </div>`;
+}
+
+function renderRaporPage(){
+  const gradeEl = document.getElementById('rapor-grade-text');
+  const noteEl = document.getElementById('rapor-note-text');
+  const subjectsEl = document.getElementById('rapor-subjects');
+  if(!gradeEl || !subjectsEl) return;
+
+  const sports = ['lari','sepeda','renang'];
+  const results = sports.map(computeSportRapor);
+
+  if(raporFilter === 'semua'){
+    const active = results.filter(r => r.sesi > 0);
+    const avgScore = active.length ? Math.round(active.reduce((s,r)=>s+r.score,0)/active.length) : 0;
+    gradeEl.textContent = scoreToGrade(avgScore);
+    noteEl.textContent = active.length
+      ? 'Rata-rata dihitung otomatis dari seluruh catatan jurnal progres 7 hari terakhir, tiap olahraga punya rapor sendiri di bawah.'
+      : 'Belum ada catatan jurnal minggu ini. Tambahkan aktivitas di Jurnal Progress supaya rapor bisa dihitung.';
+    subjectsEl.innerHTML = results.map(subjectCardHTML).join('');
+  }else{
+    const r = computeSportRapor(raporFilter);
+    gradeEl.textContent = r.grade;
+    noteEl.textContent = r.note;
+    subjectsEl.innerHTML = subjectCardHTML(r);
+  }
+}
+
+function setRaporFilter(filter){
+  raporFilter = filter;
+  renderRaporPage();
 }
 
 // =========================================================================
@@ -458,17 +676,10 @@ function refreshData(btn, page){
   btn.classList.add('spinning');
   // TODO(API): GET data terbaru dari worker sesuai `page`
   setTimeout(() => {
-    if(page === 'dashboard'){
-      const kal = 1700 + Math.floor(Math.random()*400);
-      const el = document.getElementById('stat-kalori');
-      if(el) el.textContent = kal.toLocaleString('id-ID');
-    }
-    if(page === 'kalori'){
-      const pct = 60 + Math.floor(Math.random()*35);
-      renderKaloriRing(pct);
-    }
+    if(page === 'dashboard') renderDashboardStats();
+    if(page === 'kalori') renderKaloriPage();
     btn.classList.remove('spinning');
-  }, 650);
+  }, 500);
 }
 
 // =========================================================================
@@ -480,8 +691,9 @@ document.addEventListener('DOMContentLoaded', function(){
   highlightActiveNav();
 
   // Dashboard
+  renderDashboardStats();
   renderWeek();
-  renderDashVideos();
+  renderDashTips();
 
   // Latihan
   renderLatihan('semua');
@@ -497,13 +709,36 @@ document.addEventListener('DOMContentLoaded', function(){
   }
 
   // Kalori
-  renderKaloriRing(74);
-  renderKaloriList();
+  renderKaloriPage();
 
   // Jurnal progress
+  const journalTabs = document.getElementById('journal-tabs');
+  if(journalTabs){
+    journalTabs.addEventListener('click', function(e){
+      const btn = e.target.closest('button[data-filter]');
+      if(!btn) return;
+      this.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      setJournalFilter(btn.dataset.filter);
+    });
+  }
   renderJournal();
 
-  // Tabbar rentang waktu (dashboard)
+  // Rapor kebugaran
+  const raporTabs = document.getElementById('rapor-tabs');
+  if(raporTabs){
+    raporTabs.addEventListener('click', function(e){
+      const btn = e.target.closest('button[data-filter]');
+      if(!btn) return;
+      this.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      setRaporFilter(btn.dataset.filter);
+    });
+  }
+  renderRaporPage();
+
+  // Tabbar rentang waktu (dashboard) — saat ini stat selalu mengikuti 7 hari
+  // terakhir; opsi ini disiapkan untuk pengembangan rentang lain via API.
   const dashTabbar = document.querySelector('#page-dashboard .tabbar');
   if(dashTabbar){
     dashTabbar.addEventListener('click', function(e){

@@ -297,8 +297,15 @@
   .video-body h4{margin:0 0 6px; font-size:15px;}
   .video-body .video-meta{display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--ink-soft);}
 
+  /* ---- Tip card (dashboard "Tips & Trik") ---- */
+  .tip-card{display:flex; gap:12px; align-items:flex-start;}
+  .tip-card .tip-ic{width:38px;height:38px;border-radius:11px; display:flex;align-items:center;justify-content:center; flex-shrink:0;}
+  .tip-card .tip-body h4{margin:0 0 6px; font-size:14.5px;}
+  .tip-card .tip-body p{margin:0; font-size:12.8px; color:var(--ink-soft); line-height:1.5;}
+
   /* ---- Journal / progress list ---- */
   .journal-item{display:flex; align-items:center; gap:14px; padding:14px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-md); margin-bottom:10px;}
+  .journal-item.editing{border-color:var(--primary); box-shadow:0 0 0 1.5px var(--primary-tint);}
   .journal-item .j-ic{width:42px;height:42px;border-radius:12px; display:flex;align-items:center;justify-content:center; flex-shrink:0;}
   .journal-item .j-body{flex:1; min-width:0;}
   .journal-item .j-body h4{margin:0 0 3px; font-size:14.5px;}
@@ -307,8 +314,9 @@
   .j-actions{display:flex; gap:2px;}
 
   .add-journal-form{display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:10px; align-items:end; background:var(--surface-2); border-radius:var(--radius-md); padding:14px; margin-bottom:18px;}
-  @media (max-width:700px){.add-journal-form{grid-template-columns:1fr 1fr; } .add-journal-form .btn{grid-column:1/-1;}}
+  @media (max-width:700px){.add-journal-form{grid-template-columns:1fr 1fr; } .add-journal-form .form-actions{grid-column:1/-1;}}
   .add-journal-form .field{margin:0;}
+  .add-journal-form .form-actions{display:flex; gap:8px;}
 
   /* ---- Undo bar (inline, not floating toast) ---- */
   .undo-bar{

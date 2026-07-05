@@ -142,12 +142,22 @@
             <label for="j-durasi">Durasi (menit)</label>
             <input id="j-durasi" type="number" placeholder="30">
           </div>
-          <button class="btn btn-primary" onclick="addJournalEntry()">+ Catat</button>
+          <div class="form-actions">
+            <button class="btn btn-primary" id="journal-submit-btn" onclick="addJournalEntry()">+ Catat</button>
+            <button class="btn btn-ghost" id="journal-cancel-btn" style="display:none;" onclick="cancelEditJournal()">Batal</button>
+          </div>
         </div>
 
         <div class="undo-bar" id="undo-bar">
           <span id="undo-text">Catatan dihapus.</span>
           <button onclick="undoDelete()">Urungkan</button>
+        </div>
+
+        <div class="tabbar" role="tablist" id="journal-tabs">
+          <button class="active" data-filter="semua">Semua</button>
+          <button data-filter="lari">Lari</button>
+          <button data-filter="sepeda">Bersepeda</button>
+          <button data-filter="renang">Berenang</button>
         </div>
 
         <div id="journal-list"></div>

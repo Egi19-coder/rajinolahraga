@@ -120,7 +120,7 @@
 <section class="page" id="page-dashboard">
         <div class="page-head">
           <div>
-            <h2>Halo, Budi 👋</h2>
+            <h2 id="dash-greeting">Halo, Budi 👋</h2>
             <p>Ini ringkasan aktivitasmu minggu ini.</p>
           </div>
           <button class="refresh-btn" id="refresh-dash" onclick="refreshData(this,'dashboard')">
@@ -140,25 +140,25 @@
             <div class="stat-top">
               <div class="ic-wrap" style="background:var(--lari-tint); color:var(--lari);"><svg class="i" viewBox="0 0 24 24" style="width:20px;height:20px;"><path d="M4 12h4l2-7 4 14 2-7h4"/></svg></div>
             </div>
-            <div class="stat-value mono" id="stat-kalori">1.850</div>
+            <div class="stat-value mono" id="stat-kalori">0</div>
             <div class="stat-label">Kalori terbakar</div>
-            <div class="stat-delta" style="color:var(--primary);">▲ 12% dari minggu lalu</div>
+            <div class="stat-delta" id="stat-kalori-delta" style="color:var(--primary);">Belum ada data</div>
           </div>
           <div class="card stat-card hoverable">
             <div class="stat-top">
               <div class="ic-wrap" style="background:var(--sepeda-tint); color:var(--sepeda);"><svg class="i" viewBox="0 0 24 24" style="width:20px;height:20px;"><circle cx="6" cy="17" r="3.2"/><circle cx="18" cy="17" r="3.2"/><path d="M6 17l4-8h4l3 8M10 9h3"/></svg></div>
             </div>
-            <div class="stat-value mono" id="stat-jarak">42.3 km</div>
+            <div class="stat-value mono" id="stat-jarak">0,0 km</div>
             <div class="stat-label">Total jarak tempuh</div>
-            <div class="stat-delta" style="color:var(--primary);">▲ 5.1 km dari minggu lalu</div>
+            <div class="stat-delta" id="stat-jarak-delta" style="color:var(--primary);">Belum ada data</div>
           </div>
           <div class="card stat-card hoverable">
             <div class="stat-top">
               <div class="ic-wrap" style="background:var(--renang-tint); color:var(--renang);"><svg class="i" viewBox="0 0 24 24" style="width:20px;height:20px;"><path d="M4 19c1.5-1.5 3-1.5 4.5 0s3 1.5 4.5 0 3-1.5 4.5 0M6 13l3-6 3 3 3-5 3 4"/></svg></div>
             </div>
-            <div class="stat-value mono" id="stat-sesi">6 sesi</div>
+            <div class="stat-value mono" id="stat-sesi">0 sesi</div>
             <div class="stat-label">Sesi latihan selesai</div>
-            <div class="stat-delta" style="color:var(--ink-faint);">Target: 7 sesi/minggu</div>
+            <div class="stat-delta" style="color:var(--ink-faint);">Target: 15 sesi/minggu (5 per olahraga)</div>
           </div>
         </div>
 
@@ -174,8 +174,8 @@
           <div class="lane-row" id="week-lanes"></div>
         </div>
 
-        <h3 style="margin:22px 0 12px;">Latihan Berikutnya</h3>
-        <div class="grid grid-3" id="dash-next-videos"></div>
+        <h3 style="margin:22px 0 12px;">Tips &amp; Trik</h3>
+        <div class="grid grid-3" id="dash-tips"></div>
       </section>
 
 <footer class="credit">Rajin Olahraga · Prototipe UI/UX · Data di halaman ini contoh, hubungkan ke API Worker kamu untuk data asli.</footer>

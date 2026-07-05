@@ -121,54 +121,30 @@
         <div class="page-head">
           <div>
             <h2>Rapor Kebugaran</h2>
-            <p>Penilaian konsistensi latihanmu bulan ini.</p>
+            <p>Dihitung otomatis dari jurnal progres 7 hari terakhir — beda olahraga, beda rapor.</p>
           </div>
+        </div>
+
+        <div class="tabbar" role="tablist" id="rapor-tabs">
+          <button class="active" data-filter="semua">Semua</button>
+          <button data-filter="lari">Lari</button>
+          <button data-filter="sepeda">Bersepeda</button>
+          <button data-filter="renang">Berenang</button>
         </div>
 
         <div class="card">
           <div class="rapor-summary">
             <div class="rapor-grade">
-              <span class="g">A-</span>
-              <span class="l">RATA-RATA</span>
+              <span class="g" id="rapor-grade-text">—</span>
+              <span class="l">SKOR</span>
             </div>
             <div class="rapor-note">
               <b>Catatan Pelatih</b>
-              Konsistensi lari kamu sangat baik minggu ini. Coba tambah durasi berenang agar seimbang dengan sepeda ya!
+              <span id="rapor-note-text">Belum ada data.</span>
             </div>
           </div>
 
-          <div class="subject-card">
-            <div class="subject-top">
-              <div class="left">
-                <div class="s-ic" style="background:var(--lari-tint); color:var(--lari);"><svg class="i" viewBox="0 0 24 24" style="width:20px;height:20px;"><path d="M4 12h4l2-7 4 14 2-7h4"/></svg></div>
-                <div><h4>Lari</h4><small>12 sesi bulan ini</small></div>
-              </div>
-              <span class="subject-score" style="color:var(--lari);">92</span>
-            </div>
-            <div class="progress-track"><div class="fill" style="width:92%; background:var(--lari);"></div></div>
-          </div>
-
-          <div class="subject-card">
-            <div class="subject-top">
-              <div class="left">
-                <div class="s-ic" style="background:var(--sepeda-tint); color:var(--sepeda);"><svg class="i" viewBox="0 0 24 24" style="width:20px;height:20px;"><circle cx="6" cy="17" r="3.2"/><circle cx="18" cy="17" r="3.2"/><path d="M6 17l4-8h4l3 8M10 9h3"/></svg></div>
-                <div><h4>Bersepeda</h4><small>8 sesi bulan ini</small></div>
-              </div>
-              <span class="subject-score" style="color:var(--sepeda);">85</span>
-            </div>
-            <div class="progress-track"><div class="fill" style="width:85%; background:var(--sepeda);"></div></div>
-          </div>
-
-          <div class="subject-card">
-            <div class="subject-top">
-              <div class="left">
-                <div class="s-ic" style="background:var(--renang-tint); color:var(--renang);"><svg class="i" viewBox="0 0 24 24" style="width:20px;height:20px;"><path d="M4 19c1.5-1.5 3-1.5 4.5 0s3 1.5 4.5 0 3-1.5 4.5 0M6 13l3-6 3 3 3-5 3 4"/></svg></div>
-                <div><h4>Berenang</h4><small>4 sesi bulan ini</small></div>
-              </div>
-              <span class="subject-score" style="color:var(--renang);">70</span>
-            </div>
-            <div class="progress-track"><div class="fill" style="width:70%; background:var(--renang);"></div></div>
-          </div>
+          <div id="rapor-subjects"></div>
         </div>
       </section>
 
