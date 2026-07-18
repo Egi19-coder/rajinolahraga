@@ -46,33 +46,110 @@ const tips = [
 ];
 
 // =========================================================================
-// JURNAL PROGRESS — persisten di localStorage supaya tidak hilang
+// AKUN & PENYIMPANAN DATA — semua akun disimpan di localStorage dalam satu
+// "database" berupa objek {email: {...}}. Tiap akun punya jurnalnya
+// sendiri, jadi data tidak akan tercampur/hilang saat ganti akun, logout,
+// refresh, atau tutup-buka browser lagi.
+// TODO(API): ganti seluruh objek `users` ini dengan database asli di server
+// (mis. lewat Cloudflare Worker + D1/KV), localStorage cuma solusi sementara.
 // =========================================================================
-const JOURNAL_KEY = 'ro_journal_v1';
+const USERS_KEY   = 'ro_users_v1';      // { [emailLower]: {nama,email,pass,journal:[],journalIdCounter} }
+const SESSION_KEY = 'ro_session_email'; // email akun yang sedang login di browser ini
 
-function loadJournal(){
+function loadUsers(){
   try{
-    const raw = localStorage.getItem(JOURNAL_KEY);
-    if(!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    const raw = localStorage.getItem(USERS_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
   }catch(e){
-    console.warn('Gagal membaca jurnal dari localStorage', e);
-    return [];
+    console.warn('Gagal membaca data akun dari localStorage', e);
+    return {};
   }
 }
 
-function saveJournal(){
+function saveUsers(users){
   try{
-    localStorage.setItem(JOURNAL_KEY, JSON.stringify(journal));
+    localStorage.setItem(USERS_KEY, JSON.stringify(users));
   }catch(e){
-    console.warn('Gagal menyimpan jurnal ke localStorage', e);
+    console.warn('Gagal menyimpan data akun ke localStorage', e);
   }
+}
+
+function normEmail(email){
+  return (email || '').trim().toLowerCase();
+}
+
+// Migrasi data versi lama (sebelum ada multi-akun) supaya jurnal yang sudah
+// dibuat sebelumnya tetap ada, dan siapkan akun demo bawaan sekali saja.
+function migrateAndSeedUsers(){
+  const users = loadUsers();
+  const demoKey = normEmail(DEMO_EMAIL);
+
+  if(!users[demoKey]){
+    let oldJournal = [];
+    try{
+      const raw = localStorage.getItem('ro_journal_v1');
+      const parsed = raw ? JSON.parse(raw) : null;
+      if(Array.isArray(parsed)) oldJournal = parsed;
+    }catch(e){ /* abaikan, tidak ada data lama */ }
+
+    users[demoKey] = {
+      nama: localStorage.getItem('ro_nama') || 'Budi Santoso',
+      email: DEMO_EMAIL,
+      pass: DEMO_PASS,
+      journal: oldJournal,
+      journalIdCounter: oldJournal.reduce((max,j)=>Math.max(max, j.id||0), 0) + 1,
+    };
+    saveUsers(users);
+  }
+}
+migrateAndSeedUsers();
+
+function getCurrentUserEmail(){
+  return localStorage.getItem(SESSION_KEY);
+}
+
+function getCurrentUser(){
+  const email = getCurrentUserEmail();
+  if(!email) return null;
+  const users = loadUsers();
+  return users[normEmail(email)] || null;
+}
+
+// Ubah data akun yang sedang login lalu simpan kembali ke "database"
+function updateCurrentUser(mutatorFn){
+  const email = getCurrentUserEmail();
+  if(!email) return;
+  const users = loadUsers();
+  const key = normEmail(email);
+  if(!users[key]) return;
+  mutatorFn(users[key]);
+  saveUsers(users);
+}
+
+// =========================================================================
+// JURNAL PROGRESS — persisten per akun, tidak hilang saat logout/refresh/
+// ganti akun, karena disimpan di dalam data akun yang sedang login.
+// =========================================================================
+function loadJournal(){
+  const user = getCurrentUser();
+  return (user && Array.isArray(user.journal)) ? user.journal : [];
+}
+
+function saveJournal(){
+  updateCurrentUser(function(user){
+    user.journal = journal;
+    user.journalIdCounter = journalIdCounter;
+  });
   // TODO(API): sinkronkan juga ke server, misal POST/PUT ke /api/progress
 }
 
 let journal = loadJournal();
-let journalIdCounter = journal.reduce((max,j)=>Math.max(max, j.id||0), 0) + 1;
+let journalIdCounter = (function(){
+  const user = getCurrentUser();
+  if(user && user.journalIdCounter) return user.journalIdCounter;
+  return journal.reduce((max,j)=>Math.max(max, j.id||0), 0) + 1;
+})();
 
 function calcKkal(sport, durasi){
   const rate = sportCalRate[sport] || 8;
@@ -99,6 +176,8 @@ function switchAuthTab(tab){
   document.getElementById('tab-register').setAttribute('aria-selected', tab==='register');
   document.getElementById('form-login').classList.toggle('hidden', tab!=='login');
   document.getElementById('form-register').classList.toggle('hidden', tab!=='register');
+  clearLoginError();
+  clearRegisterError();
 }
 
 function togglePasswordVisibility(inputId, btn){
@@ -125,20 +204,33 @@ function showLoginError(){
   err.classList.add('show');
 }
 
+function showRegisterError(msg){
+  const err = document.getElementById('register-error');
+  if(!err) { alert(msg); return; }
+  err.querySelector('.msg') ? (err.querySelector('.msg').textContent = msg) : (err.textContent = msg);
+  err.classList.add('show');
+}
+
+function clearRegisterError(){
+  const err = document.getElementById('register-error');
+  if(err) err.classList.remove('show');
+}
+
 function handleLogin(e){
   e.preventDefault();
   const email = document.getElementById('login-email').value.trim();
   const pass = document.getElementById('login-pass').value;
+  const key = normEmail(email);
 
   // TODO(API): ganti pengecekan ini dengan POST ke /api/login
-  if(email !== DEMO_EMAIL || pass !== DEMO_PASS){
+  const users = loadUsers();
+  const user = users[key];
+  if(!user || user.pass !== pass){
     showLoginError();
     return false;
   }
   clearLoginError();
-  localStorage.setItem('ro_logged_in', '1');
-  localStorage.setItem('ro_nama', 'Budi Santoso');
-  localStorage.setItem('ro_email', email);
+  localStorage.setItem(SESSION_KEY, user.email);
   window.location.href = 'dashboard.html';
   return false;
 }
@@ -147,30 +239,58 @@ function handleRegister(e){
   e.preventDefault();
   const nama = document.getElementById('reg-nama').value.trim();
   const email = document.getElementById('reg-email').value.trim();
-  // TODO(API): POST ke /api/register, lalu auto-login
-  localStorage.setItem('ro_logged_in', '1');
-  localStorage.setItem('ro_nama', nama || 'Pengguna Baru');
-  localStorage.setItem('ro_email', email);
+  const pass = document.getElementById('reg-pass').value;
+  const key = normEmail(email);
+
+  if(!key){
+    showRegisterError('Email tidak valid.');
+    return false;
+  }
+
+  const users = loadUsers();
+  if(users[key]){
+    showRegisterError('Email ini sudah terdaftar. Silakan masuk lewat tab Masuk.');
+    return false;
+  }
+  clearRegisterError();
+
+  // TODO(API): POST ke /api/register, lalu auto-login. Password idealnya
+  // di-hash di server, bukan disimpan apa adanya seperti di localStorage ini.
+  users[key] = {
+    nama: nama || 'Pengguna Baru',
+    email: email,
+    pass: pass,
+    journal: [],
+    journalIdCounter: 1,
+  };
+  saveUsers(users);
+
+  localStorage.setItem(SESSION_KEY, email);
   window.location.href = 'dashboard.html';
   return false;
 }
 
 function handleLogout(){
-  localStorage.removeItem('ro_logged_in');
+  localStorage.removeItem(SESSION_KEY);
   window.location.href = 'login.html';
 }
 
-// Jaga akses: kalau halaman ini butuh login tapi belum login, lempar ke login.html
+// Jaga akses: kalau halaman ini butuh login tapi belum ada sesi akun yang
+// valid & tersimpan di database, lempar ke login.html
 function guardAuth(){
-  if(document.body.dataset.requiresAuth === 'true' && localStorage.getItem('ro_logged_in') !== '1'){
+  if(document.body.dataset.requiresAuth !== 'true') return;
+  const user = getCurrentUser();
+  if(!user){
+    localStorage.removeItem(SESSION_KEY);
     window.location.href = 'login.html';
   }
 }
 
 // Isi nama/email pengguna di topbar, drawer, halaman profil, & sapaan dashboard
 function fillUserInfo(){
-  const nama = localStorage.getItem('ro_nama') || 'Budi Santoso';
-  const email = localStorage.getItem('ro_email') || 'budi@rajinolahraga.id';
+  const user = getCurrentUser();
+  const nama = (user && user.nama) || 'Budi Santoso';
+  const email = (user && user.email) || DEMO_EMAIL;
   const initials = nama.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
   const firstName = nama.split(' ')[0];
 
@@ -191,6 +311,50 @@ function fillUserInfo(){
 
   const greet = document.getElementById('dash-greeting');
   if(greet) greet.textContent = `Halo, ${firstName} 👋`;
+}
+
+// Simpan perubahan nama/email di halaman Profil ke akun yang sedang login.
+// Kalau email diganti, kunci datanya di "database" ikut dipindah supaya
+// jurnal & data lain milik akun ini tidak lepas/hilang.
+function saveProfil(){
+  const namaInput = document.getElementById('profil-input-nama');
+  const emailInput = document.getElementById('profil-input-email');
+  if(!namaInput || !emailInput) return;
+
+  const nama = namaInput.value.trim();
+  const email = emailInput.value.trim();
+  const newKey = normEmail(email);
+  const oldEmail = getCurrentUserEmail();
+  const oldKey = normEmail(oldEmail);
+
+  if(!nama || !newKey){
+    alert('Nama dan email tidak boleh kosong.');
+    return;
+  }
+
+  const users = loadUsers();
+  const userData = users[oldKey];
+  if(!userData) return;
+
+  if(newKey !== oldKey && users[newKey]){
+    alert('Email tersebut sudah dipakai akun lain.');
+    return;
+  }
+
+  userData.nama = nama;
+  userData.email = email;
+
+  if(newKey !== oldKey){
+    delete users[oldKey];
+    users[newKey] = userData;
+  }
+
+  // TODO(API): PUT ke /api/profil
+  saveUsers(users);
+  localStorage.setItem(SESSION_KEY, email);
+  journal = userData.journal || [];
+  fillUserInfo();
+  alert('Perubahan profil tersimpan.');
 }
 
 // =========================================================================

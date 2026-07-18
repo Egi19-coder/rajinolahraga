@@ -6,8 +6,9 @@
 <title>Rajin Olahraga</title>
 <script>
   // Halaman index.html cuma jadi pintu masuk: arahkan ke dashboard kalau
-  // sudah login, atau ke halaman login kalau belum.
-  if(localStorage.getItem('ro_logged_in') === '1'){
+  // ada sesi akun yang tersimpan (ro_session_email), atau ke halaman login
+  // kalau belum ada sesi sama sekali.
+  if(localStorage.getItem('ro_session_email')){
     window.location.replace('dashboard.html');
   } else {
     window.location.replace('login.html');
